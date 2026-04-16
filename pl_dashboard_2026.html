@@ -1,0 +1,920 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>P&L Dashboard 2026</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d2e;
+      --card2: #1e2235;
+      --border: #2a2d45;
+      --accent: #6c63ff;
+      --accent2: #00d4aa;
+      --accent3: #ff6b6b;
+      --accent4: #ffd93d;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #00d4aa;
+      --red: #ff6b6b;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    /* ─── Header ─── */
+    .header {
+      background: linear-gradient(135deg, #1a1d2e 0%, #1e2235 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .logo { width: 44px; height: 44px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .header-title h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; }
+    .header-title p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .header-badge { background: linear-gradient(135deg, var(--accent), #8b85ff); padding: 6px 16px;
+                    border-radius: 20px; font-size: 13px; font-weight: 600; }
+
+    /* ─── Filters ─── */
+    .filters-bar {
+      padding: 16px 32px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      background: var(--card); border-bottom: 1px solid var(--border);
+    }
+    .filters-bar label { font-size: 13px; color: var(--muted); font-weight: 500; }
+    .filters-bar select, .filters-bar input[type=search] {
+      background: var(--card2); border: 1px solid var(--border); color: var(--text);
+      padding: 7px 12px; border-radius: 8px; font-size: 13px; outline: none;
+      transition: border-color .2s;
+    }
+    .filters-bar select:hover, .filters-bar select:focus,
+    .filters-bar input[type=search]:hover, .filters-bar input[type=search]:focus { border-color: var(--accent); }
+    .btn-reset { background: transparent; border: 1px solid var(--border); color: var(--muted);
+                 padding: 7px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all .2s; }
+    .btn-reset:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ─── Main Layout ─── */
+    .main { padding: 24px 32px; display: flex; flex-direction: column; gap: 24px; }
+
+    /* ─── KPI Cards ─── */
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .kpi-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 20px; position: relative; overflow: hidden; transition: transform .2s, box-shadow .2s;
+    }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+    .kpi-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      border-radius: 16px 16px 0 0;
+    }
+    .kpi-card.blue::before   { background: linear-gradient(90deg, var(--accent), #8b85ff); }
+    .kpi-card.green::before  { background: linear-gradient(90deg, var(--accent2), #00b894); }
+    .kpi-card.red::before    { background: linear-gradient(90deg, var(--accent3), #e17055); }
+    .kpi-card.yellow::before { background: linear-gradient(90deg, var(--accent4), #fdcb6e); }
+    .kpi-card.purple::before { background: linear-gradient(90deg, #a29bfe, #6c5ce7); }
+    .kpi-icon { font-size: 22px; margin-bottom: 10px; }
+    .kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; font-weight: 600; }
+    .kpi-value { font-size: 26px; font-weight: 700; margin: 6px 0 4px; line-height: 1.1; }
+    .kpi-sub { font-size: 12px; color: var(--muted); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-top: 4px; }
+    .badge.pos { background: rgba(0,212,170,.15); color: var(--green); }
+    .badge.neg { background: rgba(255,107,107,.15); color: var(--red); }
+
+    /* ─── Charts Grid ─── */
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .charts-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } .charts-row-3 { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 20px; transition: box-shadow .2s;
+    }
+    .chart-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.2); }
+    .chart-card.wide { grid-column: span 2; }
+    @media (max-width: 900px) { .chart-card.wide { grid-column: span 1; } }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .chart-title { font-size: 15px; font-weight: 600; }
+    .chart-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .chart-badge { background: var(--card2); padding: 4px 10px; border-radius: 20px; font-size: 11px; color: var(--muted); }
+    .chart-wrap { position: relative; width: 100%; height: 220px;}
+/* موبايل */
+@media (max-width: 600px) {
+  .chart-wrap {
+    height: 140px;
+  }
+}
+
+/* تابلت */
+@media (min-width: 601px) and (max-width: 900px) {
+  .chart-wrap {
+    height: 180px;
+  }
+}
+
+/* لابتوب */
+@media (min-width: 901px) and (max-width: 1400px) {
+  .chart-wrap {
+    height: 220px;
+  }
+}
+
+/* شاشات كبيرة */
+@media (min-width: 1401px) {
+  .chart-wrap {
+    height: 260px;
+  }
+}
+
+
+    /* ─── Table Section ─── */
+    .table-section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+    .table-header { padding: 18px 20px; border-bottom: 1px solid var(--border);
+                    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .table-header h3 { font-size: 15px; font-weight: 600; }
+    .table-search { background: var(--card2); border: 1px solid var(--border); color: var(--text);
+                    padding: 7px 12px; border-radius: 8px; font-size: 13px; outline: none; width: 200px; }
+    .table-search:focus { border-color: var(--accent); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { background: var(--card2); padding: 10px 14px; text-align: left;
+               font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted);
+               font-weight: 600; position: sticky; top: 0; z-index: 1; cursor: pointer;
+               user-select: none; white-space: nowrap; transition: color .15s; }
+    thead th:hover { color: var(--accent); }
+    thead th .sort-icon { margin-left: 5px; opacity: .4; font-size: 10px; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+    tbody tr:hover { background: rgba(108,99,255,.06); }
+    tbody td { padding: 10px 14px; white-space: nowrap; }
+    .tag { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .tag.green { background: rgba(0,212,170,.15); color: var(--green); }
+    .tag.red   { background: rgba(255,107,107,.15); color: var(--red); }
+    .tag.muted { background: rgba(148,163,184,.1); color: var(--muted); }
+    .tag.blue  { background: rgba(108,99,255,.15); color: #8b85ff; }
+    .profit-bar { display: flex; align-items: center; gap: 6px; }
+    .bar-track { flex: 1; height: 4px; background: var(--border); border-radius: 4px; min-width: 50px; }
+    .bar-fill { height: 4px; border-radius: 4px; }
+    .pagination { padding: 12px 20px; display: flex; align-items: center; gap: 8px;
+                  justify-content: flex-end; border-top: 1px solid var(--border); }
+    .page-btn { background: var(--card2); border: 1px solid var(--border); color: var(--muted);
+                width: 30px; height: 30px; border-radius: 6px; cursor: pointer; font-size: 13px;
+                display: flex; align-items: center; justify-content: center; transition: all .15s; }
+    .page-btn:hover, .page-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+    .page-info { font-size: 12px; color: var(--muted); margin-right: 8px; }
+
+    /* ─── Progress Bars (KPI) ─── */
+    .mini-prog { margin-top: 8px; }
+    .mini-prog-track { height: 4px; background: var(--border); border-radius: 4px; }
+    .mini-prog-fill { height: 4px; border-radius: 4px; transition: width .6s ease; }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a3d55; }
+
+    /* ─── Area legend row ─── */
+    .legend-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ─── Tab pills ─── */
+    .tab-pills { display: flex; gap: 6px; }
+    .pill { padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; font-weight: 500;
+            border: 1px solid var(--border); color: var(--muted); transition: all .2s; background: transparent; }
+    .pill.active { background: var(--accent); border-color: var(--accent); color: white; }
+    .pill:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+    /* Top/bottom performers */
+    .perf-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .perf-item { display: flex; align-items: center; gap: 10px; }
+    .perf-rank { width: 22px; height: 22px; border-radius: 50%; background: var(--card2); font-size: 11px;
+                 font-weight: 700; display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0; }
+    .perf-rank.gold { background: rgba(255,217,61,.2); color: var(--accent4); }
+    .perf-rank.silver { background: rgba(148,163,184,.15); color: #94a3b8; }
+    .perf-rank.bronze { background: rgba(205,127,50,.15); color: #cd7f32; }
+    .perf-info { flex: 1; min-width: 0; }
+    .perf-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .perf-area { font-size: 11px; color: var(--muted); }
+    .perf-value { font-size: 13px; font-weight: 700; flex-shrink: 0; }
+    .perf-value.pos { color: var(--green); }
+    .perf-value.neg { color: var(--red); }
+    .perf-bar-wrap { width: 70px; }
+    .perf-bar-track { height: 4px; background: var(--border); border-radius: 4px; }
+    .perf-bar-fill { height: 4px; border-radius: 4px; transition: width .6s ease; }
+
+    .section-divider { display: flex; align-items: center; gap: 10px; }
+    .section-divider h2 { font-size: 14px; font-weight: 700; text-transform: uppercase;
+                          letter-spacing: 1px; color: var(--muted); white-space: nowrap; }
+    .section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ HEADER ═══════════════════════════════════════════ -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo">📊</div>
+    <div class="header-title">
+      <h1>P&amp;L Dashboard 2026</h1>
+      <p>Hotels &amp; Resorts — Financial Performance Overview</p>
+    </div>
+  </div>
+  <div class="header-badge">Jan – Feb 2026</div>
+</div>
+
+<!-- ═══════════════════════════════════════════ FILTERS ══════════════════════════════════════════ -->
+<div class="filters-bar">
+  <label>Month</label>
+  <select id="filterMonth" onchange="applyFilters()">
+    <option value="all">All Months</option>
+    <option value="all">All Months</option>
+  </select>
+  <label>Area</label>
+  <select id="filterArea" onchange="applyFilters()">
+    <option value="all">All Areas</option>
+  </select>
+  <label>Hotel</label>
+  <select id="filterHotel" onchange="applyFilters()">
+    <option value="all">All Hotels</option>
+  </select>
+  <button class="btn-reset" onclick="resetFilters()">↺ Reset</button>
+  <span id="filterInfo" style="margin-left:auto; font-size:12px; color:var(--muted);"></span>
+</div>
+
+<!-- ═══════════════════════════════════════════ MAIN ════════════════════════════════════════════ -->
+<div class="main">
+
+  <!-- KPI Row -->
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <!-- Charts Row 1 -->
+  <div class="charts-row">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">📅 Monthly P&amp;L Comparison</div>
+          <div class="chart-sub">Income vs Expenses vs Profit</div>
+        </div>
+        <div class="tab-pills">
+          <button class="pill active" onclick="switchMonthly('grouped', this)">Grouped</button>
+          <button class="pill" onclick="switchMonthly('stacked', this)">Stacked</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">🗺️ Income by Area</div>
+          <div class="chart-sub">Distribution across locations</div>
+        </div>
+        <div class="tab-pills">
+          <button class="pill active" onclick="switchAreaChart('doughnut', this)">Donut</button>
+          <button class="pill" onclick="switchAreaChart('bar', this)">Bar</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="areaChart" height="230"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- Charts Row 2 -->
+  <div class="charts-row">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">🏨 Hotel Profit Ranking</div>
+          <div class="chart-sub">Top performers by total profit</div>
+        </div>
+        <span class="chart-badge">Excl. Office</span>
+      </div>
+      <div class="chart-wrap"><canvas id="hotelProfitChart" height="260"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">💸 Expense Breakdown</div>
+          <div class="chart-sub">Total cost categories</div>
+        </div>
+        <div class="tab-pills">
+          <button class="pill active" onclick="switchExpense('polar', this)">Polar</button>
+          <button class="pill" onclick="switchExpense('pie', this)">Pie</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="expenseChart" height="260"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- Charts Row 3 -->
+  <div class="charts-row">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">📈 Profit % by Hotel</div>
+          <div class="chart-sub">Net margin per property</div>
+        </div>
+        <span class="chart-badge">Jan + Feb avg</span>
+      </div>
+      <div class="chart-wrap"><canvas id="marginChart" height="250"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">🏆 Performance Leaders</div>
+          <div class="chart-sub">Hotels by profit margin %</div>
+        </div>
+      </div>
+      <div id="perfList" class="perf-list" style="margin-top:10px;"></div>
+    </div>
+
+  </div>
+
+  <!-- Section Divider -->
+  <div class="section-divider"><h2>Detailed Records</h2></div>
+
+  <!-- Data Table -->
+  <div class="table-section">
+    <div class="table-header">
+      <h3>📋 Transaction Ledger</h3>
+      <input type="search" class="table-search" id="tableSearch" placeholder="🔍 Search hotel, area…" oninput="renderTable()">
+    </div>
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th onclick="sortBy('Hotels')">Hotel <span class="sort-icon" id="sort-Hotels">⇅</span></th>
+            <th onclick="sortBy('Area')">Area <span class="sort-icon" id="sort-Area">⇅</span></th>
+            <th onclick="sortBy('Month')">Month <span class="sort-icon" id="sort-Month">⇅</span></th>
+            <th onclick="sortBy('Income')">Income (EGP) <span class="sort-icon" id="sort-Income">⇅</span></th>
+            <th onclick="sortBy('TotalExp')">Expenses (EGP) <span class="sort-icon" id="sort-TotalExp">⇅</span></th>
+            <th onclick="sortBy('Profit')">Profit (EGP) <span class="sort-icon" id="sort-Profit">⇅</span></th>
+            <th onclick="sortBy('ProfitPct')">Margin <span class="sort-icon" id="sort-ProfitPct">⇅</span></th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════ RAW DATA ═══════════════════════
+
+
+const EXPENSE_DATA = {
+  'Salaries':      4394560.13,
+  'Entertainment':  361292.80,
+  'Commission':      37570.00,
+  'Visas':           44088.00,
+  'Purchases':       18150.00,
+  'Penalties':       10100.00,
+  'Transportation':   3550.00,
+};
+
+const AREA_COLORS = {
+  'Hurghada':       '#6c63ff',
+  'Marsa Alam':     '#00d4aa',
+  'Sahel Hashish':  '#ffd93d',
+  'Makadi':         '#ff6b6b',
+  'Soma Bay':       '#a29bfe',
+};
+let RAW = [];
+
+async function loadData() {
+  try {
+    const res = await fetch('PL2026.json'); // نفس اسم الملف
+    const data = await res.json();
+
+    // تحويل الداتا للشكل اللي الكود محتاجه
+    RAW = data.map(r => ({
+      Hotels: r["Hotels"]?.trim(),
+      Area: r["Area"],
+      Month: r["Month"],
+      Income: parseFloat(r["Income"]) || 0,
+      TotalExp: parseFloat(r["Total Exp."]) || 0,
+      Profit: parseFloat(r["Profit"]) || 0,
+      ProfitPct: (parseFloat(r["Profit %"]) || 0) * 100
+    }));
+
+    init(); // شغل الداشبورد بعد تحميل الداتا
+  } catch (err) {
+    console.error("Error loading JSON:", err);
+  }
+}
+
+// ═══════════════════════ STATE ═══════════════════════
+let filteredData = [];
+let sortCol = 'Profit', sortDir = -1;
+let currentPage = 1; const PAGE_SIZE = 10;
+let monthlyChartInst, areaChartInst, hotelProfitInst, expenseInst, marginInst;
+let currentMonthlyType = 'grouped';
+let currentAreaType = 'doughnut';
+let currentExpenseType = 'polar';
+
+// ═══════════════════════ INIT ═══════════════════════
+function init() {
+
+  filteredData = [...RAW];
+
+  // ===== Months (ADD THIS PART) =====
+  const monthSel = document.getElementById('filterMonth');
+
+  const months = [...new Set(RAW.map(r=>r.Month))];
+
+  months.forEach(m => {
+    let o = document.createElement('option');
+    o.value = o.text = m;
+    monthSel.appendChild(o);
+  });
+
+  // ===== Areas =====
+  const areas = [...new Set(RAW.map(r=>r.Area))].sort();
+  const hotels = [...new Set(RAW.map(r=>r.Hotels))].sort();
+
+  const areaSel = document.getElementById('filterArea');
+  const hotelSel = document.getElementById('filterHotel');
+
+  areas.forEach(a => {
+    let o = document.createElement('option');
+    o.value = o.text = a;
+    areaSel.appendChild(o);
+  });
+
+  hotels.forEach(h => {
+    let o = document.createElement('option');
+    o.value = o.text = h;
+    hotelSel.appendChild(o);
+  });
+
+  applyFilters();
+}
+
+// ═══════════════════════ FILTERS ═══════════════════════
+function applyFilters() {
+  const month = document.getElementById('filterMonth').value;
+  const area  = document.getElementById('filterArea').value;
+  const hotel = document.getElementById('filterHotel').value;
+  filteredData = RAW.filter(r =>
+    (month==='all' || r.Month===month) &&
+    (area==='all'  || r.Area===area)   &&
+    (hotel==='all' || r.Hotels===hotel)
+  );
+  currentPage = 1;
+  document.getElementById('filterInfo').textContent =
+    `Showing ${filteredData.length} of ${RAW.length} records`;
+  renderKPIs();
+  renderCharts();
+  renderTable();
+  renderPerfList();
+}
+
+function resetFilters() {
+  document.getElementById('filterMonth').value = 'all';
+  document.getElementById('filterArea').value = 'all';
+  document.getElementById('filterHotel').value = 'all';
+  applyFilters();
+}
+
+// ═══════════════════════ KPIs ═══════════════════════
+function fmt(n) {
+  if (n===0) return 'EGP 0';
+  const abs = Math.abs(n);
+  let s;
+  if(abs>=1_000_000) s = (n/1_000_000).toFixed(2)+'M';
+  else if(abs>=1_000) s = (n/1_000).toFixed(1)+'K';
+  else s = n.toFixed(0);
+  return 'EGP ' + s;
+}
+function fmtN(n) {
+  return new Intl.NumberFormat('en-EG',{minimumFractionDigits:0,maximumFractionDigits:0}).format(Math.round(n));
+}
+
+function renderKPIs() {
+  const d = filteredData;
+  const income  = d.reduce((s,r)=>s+r.Income,0);
+  const expense = d.reduce((s,r)=>s+r.TotalExp,0);
+  const profit  = d.reduce((s,r)=>s+r.Profit,0);
+  const margin  = income>0 ? (profit/income*100) : 0;
+  const hotels  = [...new Set(d.filter(r=>r.Hotels!=='Office').map(r=>r.Hotels))].length;
+  const areas   = [...new Set(d.map(r=>r.Area))].length;
+
+  const html = `
+    <div class="kpi-card blue">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Total Income</div>
+      <div class="kpi-value">${fmt(income)}</div>
+      <div class="kpi-sub">${fmtN(income)} EGP total revenue</div>
+      <div class="mini-prog"><div class="mini-prog-track"><div class="mini-prog-fill" style="width:85%; background:linear-gradient(90deg,#6c63ff,#8b85ff)"></div></div></div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-icon">📉</div>
+      <div class="kpi-label">Total Expenses</div>
+      <div class="kpi-value">${fmt(expense)}</div>
+      <div class="kpi-sub">${fmtN(expense)} EGP total costs</div>
+      <div class="mini-prog"><div class="mini-prog-track"><div class="mini-prog-fill" style="width:${Math.min(100,expense/income*100||80)}%; background:linear-gradient(90deg,#ff6b6b,#e17055)"></div></div></div>
+    </div>
+    <div class="kpi-card ${profit>=0?'green':'red'}">
+      <div class="kpi-icon">${profit>=0?'📈':'📉'}</div>
+      <div class="kpi-label">Net Profit</div>
+      <div class="kpi-value" style="color:${profit>=0?'var(--green)':'var(--red)'}">${fmt(profit)}</div>
+      <div class="badge ${profit>=0?'pos':'neg'}">${margin.toFixed(1)}% margin</div>
+    </div>
+    <div class="kpi-card yellow">
+      <div class="kpi-icon">🏨</div>
+      <div class="kpi-label">Active Hotels</div>
+      <div class="kpi-value">${hotels}</div>
+      <div class="kpi-sub">Across ${areas} area${areas!==1?'s':''}</div>
+      <div class="mini-prog"><div class="mini-prog-track"><div class="mini-prog-fill" style="width:${hotels/14*100}%; background:linear-gradient(90deg,#ffd93d,#fdcb6e)"></div></div></div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-label">Best Margin</div>
+      <div class="kpi-value" style="font-size:22px">${bestHotel(d)}</div>
+      <div class="kpi-sub">Top performer (hotel only)</div>
+    </div>
+  `;
+  document.getElementById('kpiRow').innerHTML = html;
+}
+
+function bestHotel(d) {
+  const hotels = d.filter(r=>r.Hotels!=='Office' && r.Income>0);
+  if(!hotels.length) return '—';
+  const byHotel = {};
+  hotels.forEach(r => {
+    if(!byHotel[r.Hotels]) byHotel[r.Hotels]={income:0,profit:0};
+    byHotel[r.Hotels].income+=r.Income;
+    byHotel[r.Hotels].profit+=r.Profit;
+  });
+  let best='', bestPct=-Infinity;
+  Object.entries(byHotel).forEach(([h,v])=>{
+    const p=v.income>0?v.profit/v.income*100:0;
+    if(p>bestPct){bestPct=p;best=h;}
+  });
+  return `${bestPct.toFixed(1)}%`;
+}
+
+// ═══════════════════════ CHARTS ═══════════════════════
+const chartDefaults = {
+  color: '#94a3b8',
+  font: { family: "'Segoe UI', system-ui, sans-serif", size: 12 },
+};
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+
+function gridOpts() {
+  return { color: 'rgba(42,45,69,0.8)', drawBorder: false };
+}
+function ticksOpts() {
+  return { color: '#94a3b8', font:{size:11} };
+}
+
+function renderCharts() {
+  renderMonthly();
+  renderAreaChart();
+  renderHotelProfit();
+  renderExpense();
+  renderMargin();
+}
+
+// ── Monthly ──
+function renderMonthly(type) {
+  if(type) currentMonthlyType = type;
+
+  const months = [...new Set(filteredData.map(r => r.Month))];
+
+  const income  = months.map(m => filteredData.filter(r=>r.Month===m).reduce((s,r)=>s+r.Income,0));
+  const expense = months.map(m => filteredData.filter(r=>r.Month===m).reduce((s,r)=>s+r.TotalExp,0));
+  const profit  = months.map(m => filteredData.filter(r=>r.Month===m).reduce((s,r)=>s+r.Profit,0));
+
+  if(monthlyChartInst) monthlyChartInst.destroy();
+  const ctx = document.getElementById('monthlyChart').getContext('2d');
+  monthlyChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { label:'Income',   data: income,  backgroundColor:'rgba(108,99,255,0.8)',  borderColor:'#6c63ff', borderWidth:1, borderRadius:4 },
+        { label:'Expenses', data: expense, backgroundColor:'rgba(255,107,107,0.7)', borderColor:'#ff6b6b', borderWidth:1, borderRadius:4 },
+        { label:'Profit',   data: profit,  backgroundColor: profit.map(v=>v>=0?'rgba(0,212,170,0.8)':'rgba(255,107,107,0.5)'),
+                                           borderColor: profit.map(v=>v>=0?'#00d4aa':'#ff6b6b'), borderWidth:1, borderRadius:4 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      animation: { duration: 600 },
+      plugins: {
+        legend:{ labels:{color:'#94a3b8',boxWidth:12,padding:16} },
+        tooltip:{ callbacks:{ label: ctx=> ` EGP ${fmtN(ctx.parsed.y)}` } }
+      },
+      scales: {
+        x:{ stacked: currentMonthlyType==='stacked', grid: gridOpts(), ticks: ticksOpts() },
+        y:{ stacked: currentMonthlyType==='stacked', grid: gridOpts(), ticks:{...ticksOpts(), callback: v=>'EGP '+fmtN(v)} }
+      }
+    }
+  });
+}
+
+function switchMonthly(type, btn) {
+  document.querySelectorAll('.tab-pills .pill').forEach(p=>{
+    if(p.onclick?.toString().includes('switchMonthly')) p.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderMonthly(type);
+}
+
+// ── Area Chart ──
+function renderAreaChart(type) {
+  if(type) currentAreaType = type;
+  const areas = [...new Set(filteredData.map(r=>r.Area))];
+  const incomes = areas.map(a => filteredData.filter(r=>r.Area===a).reduce((s,r)=>s+r.Income,0));
+  const colors = areas.map(a => AREA_COLORS[a] || '#6c63ff');
+
+  if(areaChartInst) areaChartInst.destroy();
+  const ctx = document.getElementById('areaChart').getContext('2d');
+
+  if(currentAreaType==='doughnut') {
+    areaChartInst = new Chart(ctx,{
+      type:'doughnut',
+      data:{ labels:areas, datasets:[{ data:incomes, backgroundColor:colors, borderColor:'#1a1d2e', borderWidth:3, hoverOffset:8 }] },
+      options:{
+        responsive:true, maintainAspectRatio:false, cutout:'65%',
+        plugins:{
+          legend:{ position:'right', labels:{color:'#94a3b8',boxWidth:12,padding:14,font:{size:11}} },
+          tooltip:{ callbacks:{ label: ctx=>`${ctx.label}: EGP ${fmtN(ctx.parsed)}` } }
+        }
+      }
+    });
+  } else {
+    areaChartInst = new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:areas,
+        datasets:[
+          { label:'Income', data:incomes, backgroundColor:colors, borderRadius:6 }
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false, indexAxis:'y',
+        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: ctx=>`EGP ${fmtN(ctx.parsed.x)}` } } },
+        scales:{ x:{grid:gridOpts(),ticks:{...ticksOpts(),callback:v=>'EGP '+fmtN(v)}}, y:{grid:{display:false},ticks:ticksOpts()} }
+      }
+    });
+  }
+}
+
+function switchAreaChart(type, btn) {
+  document.querySelectorAll('.tab-pills .pill').forEach(p=>{
+    if(p.onclick?.toString().includes('switchAreaChart')) p.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderAreaChart(type);
+}
+
+// ── Hotel Profit ──
+function renderHotelProfit() {
+  const byHotel = {};
+  filteredData.filter(r=>r.Hotels!=='Office').forEach(r=>{
+    if(!byHotel[r.Hotels]) byHotel[r.Hotels]={profit:0, area:r.Area};
+    byHotel[r.Hotels].profit+=r.Profit;
+  });
+  const sorted = Object.entries(byHotel).sort((a,b)=>b[1].profit-a[1].profit);
+  const labels = sorted.map(([h])=>h.length>18?h.substring(0,16)+'…':h);
+  const profits = sorted.map(([,v])=>v.profit);
+  const colors = sorted.map(([,v])=>AREA_COLORS[v.area]||'#6c63ff');
+
+  if(hotelProfitInst) hotelProfitInst.destroy();
+  const ctx = document.getElementById('hotelProfitChart').getContext('2d');
+  hotelProfitInst = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{ label:'Profit (EGP)', data:profits,
+        backgroundColor: profits.map((v,i)=>v>=0?colors[i]+'cc':'rgba(255,107,107,0.7)'),
+        borderColor: profits.map((v,i)=>v>=0?colors[i]:'#ff6b6b'),
+        borderWidth:1, borderRadius:5 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: ctx=>`EGP ${fmtN(ctx.parsed.x)}` } } },
+      scales:{ x:{grid:gridOpts(),ticks:{...ticksOpts(),callback:v=>'EGP '+fmtN(v)}}, y:{grid:{display:false},ticks:{...ticksOpts(),font:{size:11}}} }
+    }
+  });
+}
+
+// ── Expense ──
+function renderExpense(type) {
+  if(type) currentExpenseType = type;
+  const labels = Object.keys(EXPENSE_DATA);
+  const values = Object.values(EXPENSE_DATA);
+  const colors = ['#6c63ff','#00d4aa','#ffd93d','#ff6b6b','#a29bfe','#fd79a8','#55efc4'];
+
+  if(expenseInst) expenseInst.destroy();
+  const ctx = document.getElementById('expenseChart').getContext('2d');
+
+  if(currentExpenseType==='polar') {
+    expenseInst = new Chart(ctx,{
+      type:'polarArea',
+      data:{ labels, datasets:[{ data:values, backgroundColor:colors.map(c=>c+'99'), borderColor:colors, borderWidth:1.5 }] },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{ position:'right', labels:{color:'#94a3b8',boxWidth:10,padding:12,font:{size:10}} },
+          tooltip:{ callbacks:{ label: ctx=>`${ctx.label}: EGP ${fmtN(ctx.parsed.r)}` } }
+        },
+        scales:{ r:{grid:{color:'rgba(42,45,69,0.8)'},ticks:{color:'#94a3b8',backdropColor:'transparent',font:{size:9}}} }
+      }
+    });
+  } else {
+    expenseInst = new Chart(ctx,{
+      type:'pie',
+      data:{ labels, datasets:[{ data:values, backgroundColor:colors.map(c=>c+'cc'), borderColor:'#1a1d2e', borderWidth:2, hoverOffset:6 }] },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{ position:'right', labels:{color:'#94a3b8',boxWidth:10,padding:12,font:{size:10}} },
+          tooltip:{ callbacks:{ label: ctx=>`${ctx.label}: EGP ${fmtN(ctx.parsed)}` } }
+        }
+      }
+    });
+  }
+}
+
+function switchExpense(type, btn) {
+  document.querySelectorAll('.tab-pills .pill').forEach(p=>{
+    if(p.onclick?.toString().includes('switchExpense')) p.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderExpense(type);
+}
+
+// ── Margin ──
+function renderMargin() {
+  const byHotel = {};
+  filteredData.filter(r=>r.Hotels!=='Office' && r.Income>0).forEach(r=>{
+    if(!byHotel[r.Hotels]) byHotel[r.Hotels]={income:0,profit:0,area:r.Area};
+    byHotel[r.Hotels].income+=r.Income;
+    byHotel[r.Hotels].profit+=r.Profit;
+  });
+  const sorted = Object.entries(byHotel)
+    .map(([h,v])=>({hotel:h,area:v.area,pct:v.income>0?v.profit/v.income*100:0}))
+    .sort((a,b)=>b.pct-a.pct);
+
+  const labels = sorted.map(s=>s.hotel.length>16?s.hotel.substring(0,14)+'…':s.hotel);
+  const values = sorted.map(s=>parseFloat(s.pct.toFixed(1)));
+  const colors = sorted.map(s=>values[sorted.indexOf(s)]>=0?AREA_COLORS[s.area]+'cc':'rgba(255,107,107,0.7)');
+
+  if(marginInst) marginInst.destroy();
+  const ctx = document.getElementById('marginChart').getContext('2d');
+  marginInst = new Chart(ctx,{
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Profit Margin %', data:values, backgroundColor:colors, borderRadius:4 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: ctx=>`${ctx.parsed.y.toFixed(1)}%` } } },
+      scales:{
+        x:{grid:gridOpts(),ticks:{...ticksOpts(),maxRotation:40,font:{size:10}}},
+        y:{grid:gridOpts(),ticks:{...ticksOpts(),callback:v=>v+'%'}}
+      }
+    }
+  });
+}
+
+// ═══════════════════════ PERF LIST ═══════════════════════
+function renderPerfList() {
+  const byHotel = {};
+  filteredData.filter(r=>r.Hotels!=='Office' && r.Income>0).forEach(r=>{
+    if(!byHotel[r.Hotels]) byHotel[r.Hotels]={income:0,profit:0,area:r.Area};
+    byHotel[r.Hotels].income+=r.Income;
+    byHotel[r.Hotels].profit+=r.Profit;
+  });
+  const sorted = Object.entries(byHotel)
+    .map(([h,v])=>({hotel:h,area:v.area,pct:v.income>0?v.profit/v.income*100:0}))
+    .sort((a,b)=>b.pct-a.pct)
+    .slice(0,7);
+
+  const maxPct = Math.max(...sorted.map(s=>Math.abs(s.pct)));
+  const rankClass = (i)=>i===0?'gold':i===1?'silver':i===2?'bronze':'';
+  const html = sorted.map((s,i)=>`
+    <div class="perf-item">
+      <div class="perf-rank ${rankClass(i)}">${i+1}</div>
+      <div class="perf-info">
+        <div class="perf-name">${s.hotel}</div>
+        <div class="perf-area">${s.area}</div>
+      </div>
+      <div class="perf-bar-wrap">
+        <div class="perf-bar-track"><div class="perf-bar-fill" style="width:${Math.min(100,Math.abs(s.pct)/maxPct*100)}%; background:${s.pct>=0?'var(--green)':'var(--red)'}"></div></div>
+      </div>
+      <div class="perf-value ${s.pct>=0?'pos':'neg'}">${s.pct.toFixed(1)}%</div>
+    </div>
+  `).join('');
+  document.getElementById('perfList').innerHTML = html;
+}
+
+// ═══════════════════════ TABLE ═══════════════════════
+let tableSortCol = 'Profit', tableSortDir = -1;
+
+function sortBy(col) {
+  if(tableSortCol===col) tableSortDir*=-1;
+  else { tableSortCol=col; tableSortDir=-1; }
+  document.querySelectorAll('.sort-icon').forEach(el=>el.textContent='⇅');
+  const el = document.getElementById('sort-'+col);
+  if(el) el.textContent = tableSortDir>0?'↑':'↓';
+  renderTable();
+}
+
+function renderTable() {
+  const q = document.getElementById('tableSearch').value.toLowerCase();
+  let data = filteredData.filter(r =>
+    r.Hotels.toLowerCase().includes(q) || r.Area.toLowerCase().includes(q) || r.Month.toLowerCase().includes(q)
+  );
+
+  // Sort
+  data = [...data].sort((a,b)=>{
+    const av = a[tableSortCol], bv = b[tableSortCol];
+    if(typeof av==='string') return av.localeCompare(bv)*tableSortDir;
+    return (av-bv)*tableSortDir;
+  });
+
+  const total = data.length;
+  const pages = Math.max(1,Math.ceil(total/PAGE_SIZE));
+  if(currentPage>pages) currentPage=1;
+  const start = (currentPage-1)*PAGE_SIZE;
+  const page = data.slice(start, start+PAGE_SIZE);
+
+  const maxIncome = Math.max(...data.map(r=>r.Income),1);
+  const maxProfit = Math.max(...data.map(r=>Math.abs(r.Profit)),1);
+
+  const body = page.map(r=>{
+    const profitClass = r.Profit>0?'green':r.Profit<0?'red':'muted';
+    const areaColor = AREA_COLORS[r.Area]||'#6c63ff';
+    const barW = Math.min(100, Math.abs(r.Profit)/maxProfit*100);
+    const statusTag = r.Hotels==='Office'?'<span class="tag blue">Office</span>':
+                      r.Profit>50000?'<span class="tag green">⭐ Top</span>':
+                      r.Profit<0?'<span class="tag red">⚠ Loss</span>':
+                      r.Profit<1000?'<span class="tag muted">Break-even</span>':
+                      '<span class="tag green">Profitable</span>';
+    return `<tr>
+      <td style="font-weight:600">${r.Hotels}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:${areaColor};display:inline-block"></span>${r.Area}</span></td>
+      <td><span class="tag blue">${r.Month}</span></td>
+      <td style="font-variant-numeric:tabular-nums">EGP ${fmtN(r.Income)}</td>
+      <td style="font-variant-numeric:tabular-nums">EGP ${fmtN(r.TotalExp)}</td>
+      <td style="font-variant-numeric:tabular-nums"><span style="color:${r.Profit>=0?'var(--green)':'var(--red)'}; font-weight:600">EGP ${fmtN(r.Profit)}</span></td>
+      <td>
+        <div class="profit-bar">
+          <span style="color:${r.ProfitPct>=0?'var(--green)':'var(--red)'}; font-weight:600; min-width:48px">${r.ProfitPct.toFixed(1)}%</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${barW}%;background:${r.Profit>=0?'var(--green)':'var(--red)'}"></div></div>
+        </div>
+      </td>
+      <td>${statusTag}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tableBody').innerHTML = body || '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">No records found</td></tr>';
+  renderPagination(pages, total);
+}
+
+function renderPagination(pages, total) {
+  const start = (currentPage-1)*PAGE_SIZE + 1;
+  const end = Math.min(currentPage*PAGE_SIZE, total);
+  let html = `<span class="page-info">${start}–${end} of ${total}</span>`;
+  html += `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  for(let p=1;p<=pages;p++) {
+    if(pages<=7||p===1||p===pages||Math.abs(p-currentPage)<=1) {
+      html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    } else if(Math.abs(p-currentPage)===2) {
+      html += `<span style="color:var(--muted);padding:0 4px">…</span>`;
+    }
+  }
+  html += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===pages?'disabled':''}>›</button>`;
+  document.getElementById('pagination').innerHTML = html;
+}
+
+function goPage(p) {
+  const pages = Math.ceil(filteredData.length/PAGE_SIZE);
+  if(p<1||p>pages) return;
+  currentPage = p;
+  renderTable();
+}
+
+// ═══════════════════════ START ═══════════════════════
+loadData();
+</script>
+</body>
+</html>
